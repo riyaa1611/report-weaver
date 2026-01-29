@@ -1,6 +1,7 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Menu, Bell, User, LogOut, Settings } from 'lucide-react';
+import { ThemeToggle } from '@/components/theme/ThemeToggle';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -38,7 +39,10 @@ export const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
         </Button>
       </div>
 
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-2">
+        {/* Theme Toggle */}
+        <ThemeToggle />
+
         {/* Notifications */}
         <Button variant="ghost" size="icon" className="relative">
           <Bell className="h-5 w-5" />
