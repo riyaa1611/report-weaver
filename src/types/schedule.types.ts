@@ -5,6 +5,7 @@ export interface Schedule {
   user_id: string;
   template_id: string;
   template_name?: string;
+  name: string;
   cron_expression: string;
   params: Record<string, unknown>;
   data_source: DataSource;
@@ -16,12 +17,14 @@ export interface Schedule {
 
 export interface ScheduleCreateRequest {
   template_id: string;
+  name?: string;
   cron_expression: string;
   data_source: DataSource;
   params?: Record<string, unknown>;
 }
 
 export interface ScheduleUpdateRequest {
+  name?: string;
   cron_expression?: string;
   params?: Record<string, unknown>;
   data_source?: DataSource;
