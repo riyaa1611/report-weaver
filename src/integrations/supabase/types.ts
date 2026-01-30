@@ -41,6 +41,145 @@ export type Database = {
         }
         Relationships: []
       }
+      reports: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          data_source: Json | null
+          error_message: string | null
+          file_path: string | null
+          file_size: number | null
+          id: string
+          params: Json | null
+          started_at: string | null
+          status: Database["public"]["Enums"]["report_status"]
+          template_id: string | null
+          user_id: string
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          data_source?: Json | null
+          error_message?: string | null
+          file_path?: string | null
+          file_size?: number | null
+          id?: string
+          params?: Json | null
+          started_at?: string | null
+          status?: Database["public"]["Enums"]["report_status"]
+          template_id?: string | null
+          user_id: string
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          data_source?: Json | null
+          error_message?: string | null
+          file_path?: string | null
+          file_size?: number | null
+          id?: string
+          params?: Json | null
+          started_at?: string | null
+          status?: Database["public"]["Enums"]["report_status"]
+          template_id?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reports_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      schedules: {
+        Row: {
+          created_at: string
+          cron_expression: string
+          data_source: Json | null
+          id: string
+          is_active: boolean
+          last_run: string | null
+          name: string
+          next_run: string | null
+          params: Json | null
+          template_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          cron_expression: string
+          data_source?: Json | null
+          id?: string
+          is_active?: boolean
+          last_run?: string | null
+          name: string
+          next_run?: string | null
+          params?: Json | null
+          template_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          cron_expression?: string
+          data_source?: Json | null
+          id?: string
+          is_active?: boolean
+          last_run?: string | null
+          name?: string
+          next_run?: string | null
+          params?: Json | null
+          template_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "schedules_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      templates: {
+        Row: {
+          category: string | null
+          created_at: string
+          description: string | null
+          html_path: string
+          id: string
+          name: string
+          sample_output_url: string | null
+          schema: Json | null
+          thumbnail_url: string | null
+        }
+        Insert: {
+          category?: string | null
+          created_at?: string
+          description?: string | null
+          html_path: string
+          id?: string
+          name: string
+          sample_output_url?: string | null
+          schema?: Json | null
+          thumbnail_url?: string | null
+        }
+        Update: {
+          category?: string | null
+          created_at?: string
+          description?: string | null
+          html_path?: string
+          id?: string
+          name?: string
+          sample_output_url?: string | null
+          schema?: Json | null
+          thumbnail_url?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
@@ -49,7 +188,7 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
-      [_ in never]: never
+      report_status: "pending" | "processing" | "completed" | "failed"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -176,6 +315,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      report_status: ["pending", "processing", "completed", "failed"],
+    },
   },
 } as const
