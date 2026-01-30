@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Loader2, Database, Globe, FileSpreadsheet } from 'lucide-react';
+import { Loader2, Database, Globe, FileSpreadsheet, AlertCircle } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -18,45 +18,18 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
-import type { DataSourceType, Template } from '@/types';
+import { useTemplates } from '@/hooks/useTemplates';
+import { useGenerateReport } from '@/hooks/useReports';
+import { fastapiService, isBackendConfigured, getApiUrl } from '@/services/fastapi.service';
+import type { DataSourceType, DataSource } from '@/types';
 
 interface ReportGeneratorModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
-
-// Mock templates for demo
-const mockTemplates: Template[] = [
-  {
-    id: '1',
-    name: 'Monthly Sales Report',
-    description: 'Comprehensive monthly sales analysis with charts and KPIs',
-    thumbnail_url: null,
-    category: 'Financial',
-    schema: [],
-    created_at: new Date().toISOString(),
-  },
-  {
-    id: '2',
-    name: 'Customer Analytics',
-    description: 'Customer behavior and engagement metrics',
-    thumbnail_url: null,
-    category: 'Analytics',
-    schema: [],
-    created_at: new Date().toISOString(),
-  },
-  {
-    id: '3',
-    name: 'Inventory Status',
-    description: 'Current inventory levels and reorder suggestions',
-    thumbnail_url: null,
-    category: 'Data',
-    schema: [],
-    created_at: new Date().toISOString(),
-  },
-];
 
 const dataSourceOptions: { type: DataSourceType; label: string; icon: React.ElementType; description: string }[] = [
   { type: 'sql', label: 'SQL Database', icon: Database, description: 'Connect to a database' },
@@ -69,7 +42,6 @@ export const ReportGeneratorModal: React.FC<ReportGeneratorModalProps> = ({
   onOpenChange,
 }) => {
   const [step, setStep] = useState(1);
-  const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedTemplate, setSelectedTemplate] = useState<string>('');
   const [dataSourceType, setDataSourceType] = useState<DataSourceType | null>(null);
   
@@ -80,6 +52,12 @@ export const ReportGeneratorModal: React.FC<ReportGeneratorModalProps> = ({
   // API config
   const [apiUrl, setApiUrl] = useState('');
   const [apiMethod, setApiMethod] = useState<'GET' | 'POST'>('GET');
+
+  // Hooks
+  const { data: templatesData, isLoading: templatesLoading } = useTemplates();
+  const generateReport = useGenerateReport();
+
+  const templates = templatesData?.items || [];
 
   const handleClose = () => {
     onOpenChange(false);
@@ -95,17 +73,63 @@ export const ReportGeneratorModal: React.FC<ReportGeneratorModalProps> = ({
     }, 200);
   };
 
+  const buildDataSource = (): DataSource => {
+    if (dataSourceType === 'sql') {
+      return {
+        type: 'sql',
+        config: {
+          connection_string: connectionString,
+          query: sqlQuery,
+        },
+      };
+    }
+    if (dataSourceType === 'api') {
+      return {
+        type: 'api',
+        config: {
+          url: apiUrl,
+          method: apiMethod,
+        },
+      };
+    }
+    return {
+      type: 'csv',
+      config: {},
+    };
+  };
+
   const handleSubmit = async () => {
-    setIsSubmitting(true);
     try {
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 1500));
-      toast.success('Report generation started!');
+      const dataSource = buildDataSource();
+      
+      // Create report in Supabase
+      const result = await generateReport.mutateAsync({
+        template_id: selectedTemplate,
+        data_source: dataSource,
+        params: {},
+      });
+
+      // Try to trigger FastAPI backend for PDF generation (if configured)
+      if (isBackendConfigured()) {
+        try {
+          await fastapiService.triggerGeneration(result.report_id, {
+            template_id: selectedTemplate,
+            data_source: dataSource,
+            params: {},
+          });
+          toast.success('Report generation started!');
+        } catch (backendError) {
+          console.warn('FastAPI backend not reachable, report created in database only:', backendError);
+          toast.success('Report created! (Backend processing pending)');
+        }
+      } else {
+        toast.success('Report created! Configure VITE_API_URL to enable PDF generation.');
+      }
+
       handleClose();
-    } catch {
+    } catch (error) {
+      console.error('Failed to generate report:', error);
       toast.error('Failed to generate report');
-    } finally {
-      setIsSubmitting(false);
     }
   };
 
@@ -161,25 +185,38 @@ export const ReportGeneratorModal: React.FC<ReportGeneratorModalProps> = ({
         {/* Step 1: Template Selection */}
         {step === 1 && (
           <div className="space-y-3 max-h-64 overflow-y-auto">
-            {mockTemplates.map((template) => (
-              <button
-                key={template.id}
-                type="button"
-                onClick={() => setSelectedTemplate(template.id)}
-                className={cn(
-                  'w-full rounded-lg border p-4 text-left transition-all hover:border-primary/50',
-                  selectedTemplate === template.id
-                    ? 'border-primary bg-accent'
-                    : 'border-border bg-card'
-                )}
-              >
-                <p className="font-medium text-foreground">{template.name}</p>
-                <p className="mt-1 text-sm text-muted-foreground">{template.description}</p>
-                <span className="mt-2 inline-block rounded-full bg-secondary px-2 py-0.5 text-xs font-medium text-secondary-foreground">
-                  {template.category}
-                </span>
-              </button>
-            ))}
+            {templatesLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+              </div>
+            ) : templates.length === 0 ? (
+              <Alert>
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>
+                  No templates available. Add templates to your database first.
+                </AlertDescription>
+              </Alert>
+            ) : (
+              templates.map((template) => (
+                <button
+                  key={template.id}
+                  type="button"
+                  onClick={() => setSelectedTemplate(template.id)}
+                  className={cn(
+                    'w-full rounded-lg border p-4 text-left transition-all hover:border-primary/50',
+                    selectedTemplate === template.id
+                      ? 'border-primary bg-accent'
+                      : 'border-border bg-card'
+                  )}
+                >
+                  <p className="font-medium text-foreground">{template.name}</p>
+                  <p className="mt-1 text-sm text-muted-foreground">{template.description}</p>
+                  <span className="mt-2 inline-block rounded-full bg-secondary px-2 py-0.5 text-xs font-medium text-secondary-foreground">
+                    {template.category}
+                  </span>
+                </button>
+              ))
+            )}
           </div>
         )}
 
@@ -290,9 +327,9 @@ export const ReportGeneratorModal: React.FC<ReportGeneratorModalProps> = ({
           </Button>
           <Button
             onClick={step === 3 ? handleSubmit : () => setStep((s) => s + 1)}
-            disabled={!canProceed() || isSubmitting}
+            disabled={!canProceed() || generateReport.isPending}
           >
-            {isSubmitting ? (
+            {generateReport.isPending ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 Generating...
