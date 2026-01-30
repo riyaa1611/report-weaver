@@ -14,10 +14,10 @@ interface AuthStore extends AuthState {
 
 export const useAuthStore = create<AuthStore>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       user: null,
       isAuthenticated: false,
-      isLoading: true,
+      isLoading: false,
 
       login: async (email: string, password: string) => {
         const response = await authService.login({ email, password });
